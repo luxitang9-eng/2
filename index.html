@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>JavaBat AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+              mono: ['JetBrains Mono', 'monospace'],
+            },
+          },
+        },
+      }
+    </script>
+    <script>
+      // ----------------------------------------------------------------------
+      // LOCAL EXECUTION SETUP
+      // ----------------------------------------------------------------------
+      // If you are running this file locally (by opening it in a browser),
+      // you MUST paste your Gemini API Key below for the app to work.
+      //
+      // 1. Get a free key here: https://aistudio.google.com/app/apikey
+      // 2. Paste it inside the quotes below, e.g. API_KEY: 'AIzaSy...'
+      // ----------------------------------------------------------------------
+      window.process = window.process || { env: { API_KEY: '' } };
+    </script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script type="importmap">
+{
+  "imports": {
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/client": "https://aistudiocdn.com/react-dom@^19.2.0/client",
+    "react-dom": "https://aistudiocdn.com/react-dom@^19.2.0",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/"
+  }
+}
+</script>
+  </head>
+  <body class="bg-slate-50 text-slate-900 h-screen overflow-hidden">
+    <div id="root"></div>
+
+    <script type="text/babel" data-presets="react,typescript" data-type="module">
+      import React, { useState, useEffect, useCallback } from 'react';
+      import ReactDOM from 'react-dom/client';
+      import { GoogleGenAI, Type } from "@google/genai";
+
+      // --- TYPES ---
+
+      interface TestCase {
+        input: string;
+        expected: string;
+      }
+
+      interface Problem {
+        id: string;
+        title: string;
+        category: string;
+        description: string;
+        methodSignature: string;
+        starterCode: string;
+        examples: TestCase[];
+        testCases: TestCase[];
+      }
+
+      interface TestResultItem {
+        input: string;
+        expected: string;
+        actual: string;
+        passed: boolean;
+      }
+
+      interface EvaluationResult {
+        compiled: boolean;
+        compileErrorMessage?: string;
+        results: TestResultItem[];
+      }
+
+      // --- CONSTANTS ---
+
+      const PROBLEMS: Problem[] = [
+        {
+          id: 'sumUpTo',
+          title: 'sumUpTo',
+          category: 'Loops-Basic',
+          description: 'Given an integer n, return the sum of all numbers from 1 to n. For example, if n is 3, return 1 + 2 + 3 = 6.',
+          methodSignature: 'public int sumUpTo(int n)',
+          starterCode: `public int sumUpTo(int n) {\n  \n}`,
+          examples: [
+            { input: 'sumUpTo(3)', expected: '6' },
+            { input: 'sumUpTo(1)', expected: '1' },
+            { input: 'sumUpTo(5)', expected: '15' }
+          ],
+          testCases: [
+            { input: 'sumUpTo(3)', expected: '6' },
+            { input: 'sumUpTo(1)', expected: '1' },
+            { input: 'sumUpTo(5)', expected: '15' },
+            { input: 'sumUpTo(0)', expected: '0' },
+            { input: 'sumUpTo(10)', expected: '55' },
+            { input: 'sumUpTo(100)', expected: '5050' }
+          ]
+        },
+        {
+          id: 'factorial',
+          title: 'factorial',
+          category: 'Loops-Basic',
+          description: 'Given n of 1 or more, return the factorial of n, which is n * (n-1) * (n-2) ... 1. Compute the result as an int.',
+          methodSignature: 'public int factorial(int n)',
+          starterCode: `public int factorial(int n) {\n  \n}`,
+          examples: [
+            { input: 'factorial(3)', expected: '6' },
+            { input: 'factorial(4)', expected: '24' },
+            { input: 'factorial(5)', expected: '120' }
+          ],
+          testCases: [
+            { input: 'factorial(3)', expected: '6' },
+            { input: 'factorial(4)', expected: '24' },
+            { input: 'factorial(5)', expected: '120' },
+            { input: 'factorial(1)', expected: '1' },
+            { input: 'factorial(6)', expected: '720' }
+          ]
+        },
+        {
+          id: 'sumRange',
+          title: 'sumRange',
+          category: 'Loops-Basic',
+          description: 'Given two integers start and end, return the sum of all numbers from start to end (inclusive).',
+          methodSignature: 'public int sumRange(int start, int end)',
+          starterCode: `public int sumRange(int start, int end) {\n  \n}`,
+          examples: [
+            { input: 'sumRange(1, 3)', expected: '6' },
+            { input: 'sumRange(2, 5)', expected: '14' },
+            { input: 'sumRange(5, 5)', expected: '5' }
+          ],
+          testCases: [
+            { input: 'sumRange(1, 3)', expected: '6' },
+            { input: 'sumRange(2, 5)', expected: '14' },
+            { input: 'sumRange(5, 5)', expected: '5' },
+            { input: 'sumRange(0, 4)', expected: '10' },
+            { input: 'sumRange(-2, 2)', expected: '0' }
+          ]
+        },
+        {
+          id: 'sumEvens',
+          title: 'sumEvens',
+          category: 'Loops-Basic',
+          description: 'Given an integer n, return the sum of all even numbers from 0 to n inclusive.',
+          methodSignature: 'public int sumEvens(int n)',
+          starterCode: `public int sumEvens(int n) {\n  \n}`,
+          examples: [
+            { input: 'sumEvens(5)', expected: '6' },
+            { input: 'sumEvens(4)', expected: '6' },
+            { input: 'sumEvens(2)', expected: '2' }
+          ],
+          testCases: [
+            { input: 'sumEvens(5)', expected: '6' },
+            { input: 'sumEvens(4)', expected: '6' },
+            { input: 'sumEvens(2)', expected: '2' },
+            { input: 'sumEvens(0)', expected: '0' },
+            { input: 'sumEvens(10)', expected: '30' }
+          ]
+        },
+        {
+          id: 'sumOdds',
+          title: 'sumOdds',
+          category: 'Loops-Basic',
+          description: 'Given an integer n, return the sum of all odd numbers from 0 to n inclusive.',
+          methodSignature: 'public int sumOdds(int n)',
+          starterCode: `public int sumOdds(int n) {\n  \n}`,
+          examples: [
+            { input: 'sumOdds(5)', expected: '9' },
+            { input: 'sumOdds(4)', expected: '4' },
+            { input: 'sumOdds(1)', expected: '1' }
+          ],
+          testCases: [
+            { input: 'sumOdds(5)', expected: '9' },
+            { input: 'sumOdds(4)', expected: '4' },
+            { input: 'sumOdds(1)', expected: '1' },
+            { input: 'sumOdds(0)', expected: '0' },
+            { input: 'sumOdds(10)', expected: '25' }
+          ]
+        },
+        {
+          id: 'stringNumbers',
+          title: 'stringNumbers',
+          category: 'Loops-Basic',
+          description: 'Given an integer n, return a string composed of integers from 0 to n concatenated together.',
+          methodSignature: 'public String stringNumbers(int n)',
+          starterCode: `public String stringNumbers(int n) {\n  \n}`,
+          examples: [
+            { input: 'stringNumbers(3)', expected: '"0123"' },
+            { input: 'stringNumbers(1)', expected: '"01"' },
+            { input: 'stringNumbers(0)', expected: '"0"' }
+          ],
+          testCases: [
+            { input: 'stringNumbers(3)', expected: '"0123"' },
+            { input: 'stringNumbers(1)', expected: '"01"' },
+            { input: 'stringNumbers(0)', expected: '"0"' },
+            { input: 'stringNumbers(5)', expected: '"012345"' }
+          ]
+        },
+        {
+          id: 'countDown',
+          title: 'countDown',
+          category: 'Loops-Basic',
+          description: 'Given an integer n, return a string composed of integers from n down to 1 concatenated.',
+          methodSignature: 'public String countDown(int n)',
+          starterCode: `public String countDown(int n) {\n  \n}`,
+          examples: [
+            { input: 'countDown(3)', expected: '"321"' },
+            { input: 'countDown(1)', expected: '"1"' },
+            { input: 'countDown(0)', expected: '""' }
+          ],
+          testCases: [
+            { input: 'countDown(3)', expected: '"321"' },
+            { input: 'countDown(1)', expected: '"1"' },
+            { input: 'countDown(5)', expected: '"54321"' },
+            { input: 'countDown(0)', expected: '""' }
+          ]
+        },
+        {
+          id: 'powerN',
+          title: 'powerN',
+          category: 'Loops-Basic',
+          description: 'Given a base and an exponent n, compute base to the power of n using a loop.',
+          methodSignature: 'public int powerN(int base, int n)',
+          starterCode: `public int powerN(int base, int n) {\n  \n}`,
+          examples: [
+            { input: 'powerN(3, 1)', expected: '3' },
+            { input: 'powerN(3, 2)', expected: '9' },
+            { input: 'powerN(3, 3)', expected: '27' }
+          ],
+          testCases: [
+            { input: 'powerN(3, 1)', expected: '3' },
+            { input: 'powerN(3, 2)', expected: '9' },
+            { input: 'powerN(3, 3)', expected: '27' },
+            { input: 'powerN(2, 5)', expected: '32' },
+            { input: 'powerN(5, 0)', expected: '1' }
+          ]
+        },
+        {
+          id: 'sumSquares',
+          title: 'sumSquares',
+          category: 'Loops-Basic',
+          description: 'Given an integer n, return the sum of squares of all numbers from 1 to n (1*1 + 2*2 + ... + n*n).',
+          methodSignature: 'public int sumSquares(int n)',
+          starterCode: `public int sumSquares(int n) {\n  \n}`,
+          examples: [
+            { input: 'sumSquares(3)', expected: '14' },
+            { input: 'sumSquares(2)', expected: '5' },
+            { input: 'sumSquares(1)', expected: '1' }
+          ],
+          testCases: [
+            { input: 'sumSquares(3)', expected: '14' },
+            { input: 'sumSquares(2)', expected: '5' },
+            { input: 'sumSquares(1)', expected: '1' },
+            { input: 'sumSquares(4)', expected: '30' },
+            { input: 'sumSquares(0)', expected: '0' }
+          ]
+        },
+        {
+          id: 'sumDigits',
+          title: 'sumDigits',
+          category: 'Loops-Basic',
+          description: 'Given a non-negative integer n, return the sum of its digits.',
+          methodSignature: 'public int sumDigits(int n)',
+          starterCode: `public int sumDigits(int n) {\n  \n}`,
+          examples: [
+            { input: 'sumDigits(126)', expected: '9' },
+            { input: 'sumDigits(49)', expected: '13' },
+            { input: 'sumDigits(12)', expected: '3' }
+          ],
+          testCases: [
+            { input: 'sumDigits(126)', expected: '9' },
+            { input: 'sumDigits(49)', expected: '13' },
+            { input: 'sumDigits(12)', expected: '3' },
+            { input: 'sumDigits(0)', expected: '0' },
+            { input: 'sumDigits(1111)', expected: '4' }
+          ]
+        },
+        {
+          id: 'stringTimes',
+          title: 'stringTimes',
+          category: 'Loops-Strings',
+          description: 'Given a string and a non-negative int n, return a larger string that is n copies of the original string.',
+          methodSignature: 'public String stringTimes(String str, int n)',
+          starterCode: `public String stringTimes(String str, int n) {\n  \n}`,
+          examples: [
+            { input: 'stringTimes("Hi", 2)', expected: '"HiHi"' },
+            { input: 'stringTimes("Hi", 3)', expected: '"HiHiHi"' },
+            { input: 'stringTimes("Hi", 1)', expected: '"Hi"' }
+          ],
+          testCases: [
+            { input: 'stringTimes("Hi", 2)', expected: '"HiHi"' },
+            { input: 'stringTimes("Hi", 3)', expected: '"HiHiHi"' },
+            { input: 'stringTimes("Hi", 1)', expected: '"Hi"' },
+            { input: 'stringTimes("Hi", 0)', expected: '""' },
+            { input: 'stringTimes("Hi", 5)', expected: '"HiHiHiHiHi"' },
+            { input: 'stringTimes("Oh Boy!", 2)', expected: '"Oh Boy!Oh Boy!"' },
+            { input: 'stringTimes("x", 4)', expected: '"xxxx"' }
+          ]
+        },
+        {
+          id: 'countE',
+          title: 'countE',
+          category: 'Loops-Strings',
+          description: 'Return the number of times the character "e" appears in the given string.',
+          methodSignature: 'public int countE(String str)',
+          starterCode: `public int countE(String str) {\n  \n}`,
+          examples: [
+            { input: 'countE("Hello")', expected: '1' },
+            { input: 'countE("Helele")', expected: '3' },
+            { input: 'countE("Hii")', expected: '0' }
+          ],
+          testCases: [
+            { input: 'countE("Hello")', expected: '1' },
+            { input: 'countE("Helele")', expected: '3' },
+            { input: 'countE("Hii")', expected: '0' },
+            { input: 'countE("")', expected: '0' },
+            { input: 'countE("eeee")', expected: '4' }
+          ]
+        },
+        {
+          id: 'doubleChar',
+          title: 'doubleChar',
+          category: 'Loops-Strings',
+          description: 'Given a string, return a string where for every char in the original, there are two chars.',
+          methodSignature: 'public String doubleChar(String str)',
+          starterCode: `public String doubleChar(String str) {\n  \n}`,
+          examples: [
+            { input: 'doubleChar("The")', expected: '"TThhee"' },
+            { input: 'doubleChar("AAbb")', expected: '"AAAAbbbb"' },
+            { input: 'doubleChar("Hi-There")', expected: '"HHii--TThheerree"' }
+          ],
+          testCases: [
+            { input: 'doubleChar("The")', expected: '"TThhee"' },
+            { input: 'doubleChar("AAbb")', expected: '"AAAAbbbb"' },
+            { input: 'doubleChar("Hi-There")', expected: '"HHii--TThheerree"' },
+            { input: 'doubleChar("Word")', expected: '"WWoorrdd"' },
+            { input: 'doubleChar("")', expected: '""' },
+            { input: 'doubleChar(".")', expected: '".."' }
+          ]
+        },
+        {
+          id: 'countHi',
+          title: 'countHi',
+          category: 'Loops-Strings',
+          description: 'Return the number of times that the string "hi" appears anywhere in the given string.',
+          methodSignature: 'public int countHi(String str)',
+          starterCode: `public int countHi(String str) {\n  \n}`,
+          examples: [
+            { input: 'countHi("abc hi ho")', expected: '1' },
+            { input: 'countHi("ABChi hi")', expected: '2' },
+            { input: 'countHi("hihi")', expected: '2' }
+          ],
+          testCases: [
+            { input: 'countHi("abc hi ho")', expected: '1' },
+            { input: 'countHi("ABChi hi")', expected: '2' },
+            { input: 'countHi("hihi")', expected: '2' },
+            { input: 'countHi("hi")', expected: '1' },
+            { input: 'countHi("Hi is no hi")', expected: '1' },
+            { input: 'countHi("")', expected: '0' }
+          ]
+        },
+        {
+          id: 'sumArray',
+          title: 'sumArray',
+          category: 'Loops-Arrays',
+          description: 'Given an array of ints, return the sum of the integers.',
+          methodSignature: 'public int sumArray(int[] nums)',
+          starterCode: `public int sumArray(int[] nums) {\n  \n}`,
+          examples: [
+            { input: 'sumArray({1, 2, 3})', expected: '6' },
+            { input: 'sumArray({5, 11, 2})', expected: '18' },
+            { input: 'sumArray({7, 0, 0})', expected: '7' }
+          ],
+          testCases: [
+            { input: 'sumArray({1, 2, 3})', expected: '6' },
+            { input: 'sumArray({5, 11, 2})', expected: '18' },
+            { input: 'sumArray({7, 0, 0})', expected: '7' },
+            { input: 'sumArray({3, -2, 1})', expected: '2' },
+            { input: 'sumArray({})', expected: '0' }
+          ]
+        }
+      ];
+
+      const CATEGORIES = Array.from(new Set(PROBLEMS.map(p => p.category)));
+
+      // --- GEMINI SERVICE ---
+
+      const evaluateCode = async (
+        problem: Problem,
+        userCode: string
+      ): Promise<EvaluationResult> => {
+        const apiKey = process.env.API_KEY;
+          
+        if (!apiKey) {
+          console.warn("API Key is missing");
+          return {
+            compiled: false,
+            compileErrorMessage: "API Key is missing.\n\nTo run this locally:\n1. Open this file in a text editor.\n2. Search for 'LOCAL EXECUTION SETUP'.\n3. Paste your API Key into the empty string in window.process.",
+            results: []
+          };
+        }
+
+        const ai = new GoogleGenAI({ apiKey });
+        const model = "gemini-2.5-flash";
+        
+        const testCasesString = problem.testCases.map(tc => 
+          `Input: ${tc.input}, Expected Output: ${tc.expected}`
+        ).join("\n");
+
+        const prompt = `
+          You are a Java Code Compiler and Executor simulator.
+          
+          Task:
+          1. Analyze the provided Java method against the problem description.
+          2. Simulate compiling the code. Check for syntax errors, type mismatches, or missing return statements.
+          3. If it compiles, simulate running the code against the provided Test Cases.
+          4. For each test case, determine the "Actual" output produced by the user's code.
+          5. Compare "Actual" vs "Expected".
+          
+          Problem Title: ${problem.title}
+          Problem Description: ${problem.description}
+          Method Signature: ${problem.methodSignature}
+          
+          Test Cases to Run:
+          ${testCasesString}
+          
+          User's Code:
+          ${userCode}
+          
+          Output JSON matching the schema provided.
+          If there is a compilation error, set compiled to false and provide a helpful message in compileErrorMessage.
+          If compiled is true, provide an array of results for each test case.
+        `;
+
+        const evaluationSchema = {
+          type: Type.OBJECT,
+          properties: {
+            compiled: {
+              type: Type.BOOLEAN,
+              description: "Whether the Java code compiled successfully.",
+            },
+            compileErrorMessage: {
+              type: Type.STRING,
+              description: "If compiled is false, this contains the compiler error message.",
+            },
+            results: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  input: { type: Type.STRING },
+                  expected: { type: Type.STRING },
+                  actual: { type: Type.STRING },
+                  passed: { type: Type.BOOLEAN },
+                },
+                required: ["input", "expected", "actual", "passed"],
+              },
+            },
+          },
+          required: ["compiled", "results"],
+        };
+
+        try {
+          const response = await ai.models.generateContent({
+            model,
+            contents: [{ parts: [{ text: prompt }] }],
+            config: {
+              responseMimeType: "application/json",
+              responseSchema: evaluationSchema,
+              temperature: 0, // Deterministic for code execution
+            },
+          });
+
+          const text = response.text;
+          if (!text) throw new Error("No response from AI");
+          
+          return JSON.parse(text);
+        } catch (error) {
+          console.error("Gemini Evaluation Error:", error);
+          return {
+            compiled: false,
+            compileErrorMessage: "System Error: Failed to evaluate code via Gemini API. " + (error instanceof Error ? error.message : String(error)),
+            results: []
+          };
+        }
+      };
+
+      // --- COMPONENTS ---
+
+      const ProblemList = ({ onSelectProblem, currentProblemId }) => {
+        return (
+          <div className="w-full md:w-64 bg-white border-r border-slate-200 h-full overflow-y-auto flex-shrink-0">
+            <div className="p-4 border-b border-slate-100 sticky top-0 bg-white z-10">
+              <h2 className="text-xl font-bold text-indigo-600 flex items-center gap-2">
+                <span className="text-2xl">☕</span> JavaBat AI
+              </h2>
+              <p className="text-xs text-slate-500 mt-1">Practice coding with AI feedback</p>
+            </div>
+            
+            <div className="p-4 space-y-6">
+              {CATEGORIES.map(category => (
+                <div key={category}>
+                  <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-2">{category}</h3>
+                  <ul className="space-y-1">
+                    {PROBLEMS.filter(p => p.category === category).map(problem => (
+                      <li key={problem.id}>
+                        <button
+                          onClick={() => onSelectProblem(problem)}
+                          className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
+                            currentProblemId === problem.id
+                              ? 'bg-indigo-50 text-indigo-700 font-medium'
+                              : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                          }`}
+                        >
+                          {problem.title}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      };
+
+      const CodeWorkspace = ({ problem }) => {
+        const [code, setCode] = useState(problem.starterCode);
+        const [result, setResult] = useState(null);
+        const [isRunning, setIsRunning] = useState(false);
+        
+        useEffect(() => {
+          setCode(problem.starterCode);
+          setResult(null);
+          setIsRunning(false);
+        }, [problem]);
+
+        const handleRun = useCallback(async () => {
+          setIsRunning(true);
+          setResult(null);
+          try {
+            const evalResult = await evaluateCode(problem, code);
+            setResult(evalResult);
+          } catch (e) {
+            console.error(e);
+            setResult({
+              compiled: false,
+              compileErrorMessage: "An unexpected network error occurred.",
+              results: []
+            });
+          } finally {
+            setIsRunning(false);
+          }
+        }, [code, problem]);
+
+        const passedCount = result?.results.filter(r => r.passed).length || 0;
+        const totalCount = result?.results.length || 0;
+        const allPassed = totalCount > 0 && passedCount === totalCount;
+
+        return (
+          <div className="flex-1 flex flex-col h-full overflow-hidden bg-slate-50">
+            <div className="bg-white border-b border-slate-200 px-6 py-4 shadow-sm flex-shrink-0">
+              <div className="flex justify-between items-start">
+                <div>
+                  <h1 className="text-2xl font-bold text-slate-800">{problem.title}</h1>
+                  <p className="text-slate-600 mt-2 max-w-3xl leading-relaxed">{problem.description}</p>
+                </div>
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => setCode(problem.starterCode)}
+                    className="px-4 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-300 rounded-md hover:bg-slate-50 transition-colors"
+                  >
+                    Reset
+                  </button>
+                  <button 
+                    onClick={handleRun}
+                    disabled={isRunning}
+                    className={`px-6 py-2 text-sm font-medium text-white rounded-md transition-all shadow-sm flex items-center gap-2 ${
+                      isRunning 
+                        ? 'bg-indigo-400 cursor-not-allowed' 
+                        : 'bg-indigo-600 hover:bg-indigo-700 hover:shadow'
+                    }`}
+                  >
+                    {isRunning ? (
+                      <>
+                        <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Running...
+                      </>
+                    ) : (
+                      <>
+                        <span>▶</span> Run Code
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full">
+                <div className="flex flex-col gap-6">
+                   <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-5">
+                    <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3">Examples</h3>
+                    <div className="bg-slate-50 rounded border border-slate-200 overflow-hidden">
+                      <table className="w-full text-sm text-left">
+                        <thead className="bg-slate-100 text-slate-600 font-medium border-b border-slate-200">
+                          <tr>
+                            <th className="px-4 py-2">Code Call</th>
+                            <th className="px-4 py-2">Expected</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-200">
+                          {problem.examples.map((ex, idx) => (
+                            <tr key={idx} className="font-mono text-xs">
+                              <td className="px-4 py-2 text-slate-700">{ex.input}</td>
+                              <td className="px-4 py-2 text-green-600">{ex.expected}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  <div className="flex-1 min-h-[400px] flex flex-col">
+                    <div className="flex justify-between items-center mb-2">
+                      <label className="text-sm font-semibold text-slate-700">Solution</label>
+                      <span className="text-xs text-slate-400">Java</span>
+                    </div>
+                    <textarea
+                      value={code}
+                      onChange={(e) => setCode(e.target.value)}
+                      className="flex-1 w-full p-4 font-mono text-sm bg-slate-900 text-slate-100 rounded-lg shadow-inner focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none leading-relaxed"
+                      spellCheck={false}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex flex-col h-full">
+                  <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3">Output</h3>
+                  
+                  <div className={`flex-1 bg-white rounded-lg border shadow-sm overflow-hidden flex flex-col ${result ? 'border-slate-200' : 'border-dashed border-slate-300 justify-center items-center'}`}>
+                    {!result && !isRunning && (
+                      <div className="text-center p-8">
+                        <div className="text-4xl mb-3">⚡</div>
+                        <p className="text-slate-500">Ready to compile.</p>
+                        <p className="text-sm text-slate-400">Click "Run Code" to test your solution.</p>
+                      </div>
+                    )}
+
+                    {isRunning && (
+                      <div className="flex-1 flex flex-col items-center justify-center p-8">
+                        <div className="animate-bounce text-4xl mb-4">☕</div>
+                        <p className="text-slate-600 font-medium">Compiling & Testing...</p>
+                        <p className="text-sm text-slate-400 mt-2">Gemini is evaluating your Java code.</p>
+                      </div>
+                    )}
+
+                    {result && (
+                      <div className="flex-1 flex flex-col h-full">
+                        <div className={`px-6 py-4 border-b ${result.compiled ? 'bg-green-50 border-green-100' : 'bg-red-50 border-red-100'}`}>
+                          <h4 className={`font-bold flex items-center gap-2 ${result.compiled ? 'text-green-700' : 'text-red-700'}`}>
+                            {result.compiled ? (
+                              <>
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
+                                Compilation Successful
+                              </>
+                            ) : (
+                              <>
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                Compilation Failed
+                              </>
+                            )}
+                          </h4>
+                          {!result.compiled && result.compileErrorMessage && (
+                            <pre className="mt-2 text-xs font-mono text-red-600 bg-red-100 p-3 rounded whitespace-pre-wrap">
+                              {result.compileErrorMessage}
+                            </pre>
+                          )}
+                          {result.compiled && (
+                            <div className="mt-1 text-sm text-green-800">
+                              {allPassed ? "All tests passed! Great job." : `${passedCount} / ${totalCount} tests passed.`}
+                            </div>
+                          )}
+                        </div>
+
+                        {result.compiled && (
+                          <div className="flex-1 overflow-y-auto">
+                            <table className="w-full text-left text-sm">
+                              <thead className="bg-slate-50 text-slate-500 font-medium border-b border-slate-100 sticky top-0">
+                                <tr>
+                                  <th className="px-6 py-3 w-8"></th>
+                                  <th className="px-6 py-3">Test Case</th>
+                                  <th className="px-6 py-3">Expected</th>
+                                  <th className="px-6 py-3">Run</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-100">
+                                {result.results.map((r, i) => (
+                                  <tr key={i} className={`hover:bg-slate-50 transition-colors ${r.passed ? '' : 'bg-red-50/30'}`}>
+                                    <td className="px-6 py-3 text-center">
+                                      {r.passed ? (
+                                        <span className="inline-block w-6 h-6 bg-green-500 text-white rounded flex items-center justify-center text-xs">✓</span>
+                                      ) : (
+                                        <span className="inline-block w-6 h-6 bg-red-500 text-white rounded flex items-center justify-center text-xs">✕</span>
+                                      )}
+                                    </td>
+                                    <td className="px-6 py-3 font-mono text-slate-700 text-xs">{r.input}</td>
+                                    <td className="px-6 py-3 font-mono text-slate-600 text-xs">{r.expected}</td>
+                                    <td className="px-6 py-3 font-mono text-xs font-bold">
+                                      <span className={r.passed ? 'text-green-600' : 'text-red-600'}>
+                                        {r.actual}
+                                      </span>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                        
+                        {allPassed && result.compiled && (
+                           <div className="p-6 bg-green-50 border-t border-green-100 text-center animate-pulse">
+                              <span className="text-2xl">🎉</span>
+                              <span className="ml-2 font-bold text-green-800">Problem Solved!</span>
+                           </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      };
+
+      const App = () => {
+        const [selectedProblem, setSelectedProblem] = useState(PROBLEMS[0]);
+
+        return (
+          <div className="flex h-screen w-full bg-slate-100 overflow-hidden font-sans">
+            <ProblemList 
+              onSelectProblem={setSelectedProblem} 
+              currentProblemId={selectedProblem.id}
+            />
+            <CodeWorkspace problem={selectedProblem} />
+          </div>
+        );
+      };
+
+      const rootElement = document.getElementById('root');
+      if (!rootElement) {
+        throw new Error("Could not find root element to mount to");
+      }
+
+      const root = ReactDOM.createRoot(rootElement);
+      root.render(
+        <React.StrictMode>
+          <App />
+        </React.StrictMode>
+      );
+    </script>
+  </body>
+</html>

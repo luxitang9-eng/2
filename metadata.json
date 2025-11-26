@@ -1,0 +1,5 @@
+{
+  "name": "JavaBat AI",
+  "description": "A CodingBat-style Java practice platform powered by Gemini to compile and test code in real-time.",
+  "requestFramePermissions": []
+}
